@@ -29,16 +29,19 @@ function App() {
             if (rgb) RingLightService.SetColor(m, rgb.r, rgb.g, rgb.b);
             RingLightService.SetBrightness(m, s.brightness);
             RingLightService.SetWidth(m, s.width);
+            RingLightService.SetRadius(m, s.radius || 80);
             RingLightService.ToggleMonitor(m, s.enabled);
           } else {
             settings[m] = {
               enabled: false,
               color: '#FFEE08',
               brightness: 200,
-              width: 30
+              width: 30,
+              radius: 80
             };
             // Ensure backend is also off by default
             RingLightService.ToggleMonitor(m, false);
+            RingLightService.SetRadius(m, 80);
           }
         });
         setMonitorSettings(settings);
@@ -119,6 +122,9 @@ function App() {
       case 'width':
         RingLightService.SetWidth(name, value);
         break;
+      case 'radius':
+        RingLightService.SetRadius(name, value);
+        break;
       case 'enabled':
         RingLightService.ToggleMonitor(name, value);
         break;
@@ -130,14 +136,10 @@ function App() {
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0a0c14] text-slate-200 select-none items-center">
       {/* Main Content */}
-      <main className="w-full max-w-7xl flex flex-col p-10 overflow-y-auto">
-        <header className="flex items-center justify-between mb-10 w-full">
-          <h1 className="text-3xl font-bold tracking-tight text-white">FakeRing</h1>
-        </header>
-
+      <main className="w-full max-w-7xl flex flex-col p-4 overflow-y-auto">
         <section className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
           {monitors.length > 0 ? monitors.map((m, i) => {
-            const s = monitorSettings[m] || { enabled: false, color: '#FFEE08', brightness: 200, width: 30 };
+            const s = monitorSettings[m] || { enabled: false, color: '#FFEE08', brightness: 200, width: 30, radius: 80 };
             return (
               <div key={m} className={`glass rounded-[32px] transition-all duration-500 border-2 flex flex-col p-6 ${s.enabled ? 'gap-8 border-yellow-500/20 bg-slate-800/5' : 'gap-0 border-transparent bg-slate-900/10 opacity-60'}`}>
                 <div className="flex items-center justify-between w-full">
@@ -206,6 +208,23 @@ function App() {
                           onChange={(e) => updateSetting(m, 'width', parseInt(e.target.value))} 
                           style={{
                             background: `linear-gradient(to right, #FFEE08 0%, #FFEE08 ${((s.width-1)/149)*100}%, rgba(255, 255, 255, 0.1) ${((s.width-1)/149)*100}%, rgba(255, 255, 255, 0.1) 100%)`
+                          }}
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-3">
+                        <div className="flex justify-between items-end">
+                          <span className="text-xs text-slate-500 font-bold uppercase tracking-widest">Corner Softness</span>
+                          <span className="text-slate-400 text-sm font-mono">{s.radius}</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max="500" 
+                          value={s.radius} 
+                          onChange={(e) => updateSetting(m, 'radius', parseInt(e.target.value))} 
+                          style={{
+                            background: `linear-gradient(to right, #FFEE08 0%, #FFEE08 ${(s.radius/500)*100}%, rgba(255, 255, 255, 0.1) ${(s.radius/500)*100}%, rgba(255, 255, 255, 0.1) 100%)`
                           }}
                         />
                       </div>

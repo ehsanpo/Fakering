@@ -29,7 +29,13 @@ var (
 	procGetClientRect       = user32.NewProc("GetClientRect")
 	procInvalidateRect      = user32.NewProc("InvalidateRect")
 	procSetWindowPos        = user32.NewProc("SetWindowPos")
+	procCreateRoundRectRgn  = gdi32.NewProc("CreateRoundRectRgn")
+	procCreateRectRgn       = gdi32.NewProc("CreateRectRgn")
+	procCombineRgn          = gdi32.NewProc("CombineRgn")
+	procFillRgn             = gdi32.NewProc("FillRgn")
 )
+
+const RGN_DIFF = 4
 
 const (
 	WS_POPUP             = 0x80000000
@@ -102,6 +108,7 @@ type MonitorSettings struct {
 	Enabled bool
 	Alpha   byte
 	Width   int32
+	Radius  int32
 }
 
 type OverlayManager struct {
@@ -136,6 +143,13 @@ func (m *OverlayManager) SetAlpha(monitorName string, alpha uint8) {
 func (m *OverlayManager) SetWidth(monitorName string, width int32) {
 	if s, ok := m.settings[monitorName]; ok {
 		s.Width = width
+		m.RedrawMonitor(monitorName)
+	}
+}
+
+func (m *OverlayManager) SetRadius(monitorName string, radius int32) {
+	if s, ok := m.settings[monitorName]; ok {
+		s.Radius = radius
 		m.RedrawMonitor(monitorName)
 	}
 }
@@ -183,9 +197,9 @@ func WndProc(hwnd syscall.Handle, msg uint32, wparam, lparam uintptr) uintptr {
 
 			// Find monitor color for this HWND
 			var s *MonitorSettings
-			for name, h := range manager.windows {
+			for n, h := range manager.windows {
 				if h == hwnd {
-					s = manager.settings[name]
+					s = manager.settings[n]
 					break
 				}
 			}
@@ -204,26 +218,37 @@ func WndProc(hwnd syscall.Handle, msg uint32, wparam, lparam uintptr) uintptr {
 				ringColor := s.Color
 				coreBrush, _, _ := procCreateSolidBrush.Call(uintptr(ringColor))
 				
-				// Helper to draw border rect
-				drawBorder := func(brush uintptr, inset int32) {
-					// Top
-					r := RECT{inset, inset, rect.Right - inset, inset + 1}
-					procFillRect.Call(hdc, uintptr(unsafe.Pointer(&r)), brush)
-					// Bottom
-					r = RECT{inset, rect.Bottom - inset - 1, rect.Right - inset, rect.Bottom - inset}
-					procFillRect.Call(hdc, uintptr(unsafe.Pointer(&r)), brush)
-					// Left
-					r = RECT{inset, inset, inset + 1, rect.Bottom - inset}
-					procFillRect.Call(hdc, uintptr(unsafe.Pointer(&r)), brush)
-					// Right
-					r = RECT{rect.Right - inset - 1, inset, rect.Right - inset, rect.Bottom - inset}
-					procFillRect.Call(hdc, uintptr(unsafe.Pointer(&r)), brush)
+				radius := s.Radius
+				if radius < 0 {
+					radius = 0
 				}
 
-				// 1. Draw solid core
-				for i := int32(0); i < s.Width; i++ {
-					drawBorder(coreBrush, i)
+				// Outer rounded region
+				outerRgn, _, _ := procCreateRoundRectRgn.Call(
+					0, 0, uintptr(rect.Right), uintptr(rect.Bottom), uintptr(radius*2), uintptr(radius*2))
+				
+				// Inner rounded region
+				innerWidth := s.Width
+				innerRadius := radius - innerWidth
+				if innerRadius < 0 {
+					innerRadius = 0
 				}
+				innerRgn, _, _ := procCreateRoundRectRgn.Call(
+					uintptr(innerWidth), uintptr(innerWidth), 
+					uintptr(rect.Right-innerWidth), uintptr(rect.Bottom-innerWidth), 
+					uintptr(innerRadius*2), uintptr(innerRadius*2))
+				
+				// Combine to get the frame
+				combinedRgn, _, _ := procCreateRectRgn.Call(0, 0, 0, 0)
+				procCombineRgn.Call(combinedRgn, outerRgn, innerRgn, uintptr(RGN_DIFF))
+				
+				// Fill the combined region
+				procFillRgn.Call(hdc, combinedRgn, coreBrush)
+				
+				// Cleanup
+				procDeleteObject.Call(outerRgn)
+				procDeleteObject.Call(innerRgn)
+				procDeleteObject.Call(combinedRgn)
 				procDeleteObject.Call(coreBrush)
 			}
 
@@ -307,6 +332,7 @@ func StartOverlay() {
 					Enabled: false,
 					Alpha:   200,
 					Width:   30,
+					Radius:  80,
 				}
 			}
 
@@ -318,7 +344,6 @@ func StartOverlay() {
 		})
 
 		procEnumDisplayMonitors.Call(0, 0, callback, 0)
-
 
 		var msg MSG
 		for {

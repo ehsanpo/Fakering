@@ -45,6 +45,15 @@ export function SetEnabled(enabled) {
 
 /**
  * @param {string} monitorName
+ * @param {number} radius
+ * @returns {$CancellablePromise<void>}
+ */
+export function SetRadius(monitorName, radius) {
+    return $Call.ByID(1533140783, monitorName, radius);
+}
+
+/**
+ * @param {string} monitorName
  * @param {number} width
  * @returns {$CancellablePromise<void>}
  */

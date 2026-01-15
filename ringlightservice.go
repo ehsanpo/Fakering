@@ -18,6 +18,10 @@ func (r *RingLightService) SetWidth(monitorName string, width int32) {
 	manager.SetWidth(monitorName, width)
 }
 
+func (r *RingLightService) SetRadius(monitorName string, radius int32) {
+	manager.SetRadius(monitorName, radius)
+}
+
 
 
 func (r *RingLightService) GetMonitors() []string {
