@@ -31,7 +31,6 @@ func main() {
 	// For Wails v3, we can check for the build tag or just use application.Options.
 	options := application.Options{
 		Name:        "fakeRing",
-		Description: "A demo of using raw HTML & CSS",
 		Services: []application.Service{
 			application.NewService(&RingLightService{}),
 			application.NewService(&App{}),
@@ -39,46 +38,39 @@ func main() {
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 		},
-		Mac: application.MacOptions{
-			ApplicationShouldTerminateAfterLastWindowClosed: true,
-		},
 	}
-
-	// SingleInstance is only desired in production.
-	// Wails v3 dev mode typically sets WAILS_VITE_PORT or similar environment variables.
+	// SingleInstance with a fresh ID to ensure it's not blocked by old PIDs
 	if os.Getenv("WAILS_VITE_PORT") == "" {
 		options.SingleInstance = &application.SingleInstanceOptions{
-			UniqueID: "com.fakering.elite",
+			UniqueID: "com.fakering.pro.v1",
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
-				// Activate the main window when a second instance is launched
 				windows := application.Get().Window.GetAll()
 				if len(windows) > 0 {
-					windows[0].Show()
-					windows[0].UnMinimise()
-					windows[0].Focus()
+					w := windows[0]
+					w.Show()
+					w.UnMinimise()
+					w.Focus()
 				}
 			},
 		}
 	}
 
 	app := application.New(options)
-
 	StartOverlay()
 
-
-	// Create system tray
+	// Setup Tray
 	systray := app.SystemTray.New()
 	systray.SetIcon(trayIcon)
-	systray.SetLabel("fakeRing")
+	systray.SetLabel("FakeRing")
 
-	// Add system tray menu
 	menu := app.NewMenu()
-	menu.Add("Show Window").OnClick(func(ctx *application.Context) {
-		// Show and unminimize the window
+	menu.Add("Open Dashboard").OnClick(func(ctx *application.Context) {
 		windows := app.Window.GetAll()
 		if len(windows) > 0 {
-			windows[0].Show()
-			windows[0].UnMinimise()
+			w := windows[0]
+			w.Show()
+			w.UnMinimise()
+			w.Focus()
 		}
 	})
 	menu.AddSeparator()
@@ -87,26 +79,21 @@ func main() {
 	})
 	systray.SetMenu(menu)
 
-	// Create a new window for the controller UI
+	app.OnShutdown(func() {
+		systray.Destroy()
+	})
+
+	// Create Window
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title: "FakeRing Controller",
-		Width: 450,
+		Title:  "FakeRing Controller",
+		Width:  450,
 		Height: 600,
-		Mac: application.MacWindow{
-			InvisibleTitleBarHeight: 50,
-			Backdrop:                application.MacBackdropTranslucent,
-			TitleBar:                application.MacTitleBarHiddenInset,
-		},
 		BackgroundColour: application.NewRGB(15, 23, 42),
 		URL:              "/",
 		DisableResize:    true,
 	})
 
-
-	// Run the application. This blocks until the application has been exited.
 	err := app.Run()
-
-	// If an error occurred while running the application, log it and exit.
 	if err != nil {
 		log.Fatal(err)
 	}
