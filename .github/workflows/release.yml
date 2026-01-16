@@ -47,27 +47,8 @@ jobs:
       - name: Build
         run: wails3 build
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: fakeRing-${{ matrix.os }}
-          path: build/bin/
-
-  release:
-    needs: build
-    runs-on: ubuntu-22.04
-    if: startsWith(github.ref, 'refs/tags/')
-
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Upload artifacts to release
+        uses: softprops/action-gh-release@v2
         with:
           files: |
-            fakeRing-ubuntu-22.04/*
-            fakeRing-macos-latest/*
-            fakeRing-windows-latest/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            build/bin/**
